@@ -4,8 +4,8 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import cors from 'cors';
 
-import adminRoutes from './routes/admin.routes.js';
-import paymentRoutes from './routes/payments.routes.js';
+import adminRoutes from './src/routes/admin.routes.js';
+import paymentRoutes from './src/routes/payments.routes.js';
 
 dotenv.config();
 
