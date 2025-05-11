@@ -14,7 +14,7 @@ router.post('/create-order', async (req, res) => {
   request.requestBody({
     intent: 'CAPTURE',
     application_context: {
-      return_url: 'https://voy-a-ganar.netlify.app/success',
+      return_url: 'https://voy-a-ganar.netlify.app/payment-success',
       cancel_url: 'https://voy-a-ganar.netlify.app/checkout',
       brand_name: 'voy-a-ganar',
       user_action: 'PAY_NOW'
