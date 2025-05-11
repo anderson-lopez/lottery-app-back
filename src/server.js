@@ -7,6 +7,7 @@ import cors from 'cors';
 import adminRoutes from './routes/admin.routes.js';
 import paymentRoutes from './routes/payments.routes.js';
 import packageRoutes from './routes/package.routes.js';
+import purchaseRoutes from './routes/purchase.routes.js';
 
 dotenv.config();
 
@@ -18,7 +19,8 @@ app.use(express.json());
 app.use('/api/admin', adminRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/packages', packageRoutes);
-app.use('*', (req, res) => {
+app.use('/api/purchases', purchaseRoutes);
+app.use('/api/*', (req, res) => {
   res.status(404).json({ message: 'Ruta no encontrada' });
 });
 app.get('/', (req, res) => {
