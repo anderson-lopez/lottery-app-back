@@ -6,15 +6,18 @@ import cors from 'cors';
 
 import adminRoutes from './routes/admin.routes.js';
 import paymentRoutes from './routes/payments.routes.js';
+import packageRoutes from './routes/package.routes.js';
 
 dotenv.config();
 
 const app = express();
 app.use(cors({ origin: process.env.FRONTEND_URL }));
 app.use(express.json());
+
 // Rutas
 app.use('/api/admin', adminRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/packages', packageRoutes);
 app.use('*', (req, res) => {
   res.status(404).json({ message: 'Ruta no encontrada' });
 });
