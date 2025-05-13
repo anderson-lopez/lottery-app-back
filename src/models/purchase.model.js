@@ -14,7 +14,7 @@ const purchaseSchema = new mongoose.Schema({
     acceptedTerms: { type: Boolean, required: true }
   },
   packageId: { type: mongoose.Schema.Types.ObjectId, ref: 'Package', required: true },
-  quantity: { type: Number, required: true }, // número de boletos comprados
+  quantity: { type: Number, required: true },
   unitPrice: { type: Number, required: true },
   totalPrice: { type: Number, required: true },
 
@@ -24,7 +24,6 @@ const purchaseSchema = new mongoose.Schema({
     required: true
   },
 
-  // Detalles según el método de pago
   paypal: {
     orderId: String,
     payerId: String,
@@ -36,18 +35,18 @@ const purchaseSchema = new mongoose.Schema({
   },
 
   bankTransfer: {
-    bankName: String, // por si lo necesitas
-    referenceCode: String, // ej: Speed57-6223
-    received: { type: Boolean, default: false }, // confirmación manual
+    bankName: String,
+    referenceCode: String,
+    received: { type: Boolean, default: false },
     confirmedAt: Date,
   },
 
   card: {
-    // Se puede completar con detalles si usas Stripe o algún gateway
+    paymentProvider: { type: String }, // "payphone", "stripe", etc.
     transactionId: String,
     status: String,
-    cardBrand: String,
-    last4: String,
+    cardBrand: String, // solo si aplica (Stripe, etc.)
+    last4: String,     // solo si aplica (Stripe, etc.)
     completedAt: Date,
   },
 

@@ -2,37 +2,16 @@ import express from 'express';
 import paypal from '@paypal/checkout-server-sdk';
 import client from '../utils/paypalClient.js';
 import Purchase from '../models/purchase.model.js';
+import { createPayPhoneOrder, getAccessToken } from '../utils/payphoneClient.js';
 
 const router = express.Router();
 
 // Crear una orden de PayPal
 router.post('/create-order', async (req, res) => {
-  const { amount, buyer, packageId, quantity, unitPrice, totalPrice } = req.body;
-
-  const request = new paypal.orders.OrdersCreateRequest();
-  request.prefer("return=representation");
-  request.requestBody({
-    intent: 'CAPTURE',
-    application_context: {
-      return_url: 'https://voy-a-ganar.netlify.app/payment-success',
-      cancel_url: 'https://voy-a-ganar.netlify.app/checkout',
-      brand_name: 'voy-a-ganar',
-      user_action: 'PAY_NOW'
-    },
-    purchase_units: [{
-      amount: {
-        currency_code: 'USD',
-        value: totalPrice.toFixed(2) || amount,
-      }
-    }]
-  });
+  const { amount, buyer, packageId, quantity, unitPrice, totalPrice, paymentMethod } = req.body;
 
   try {
-    const order = await client.execute(request);
-    const orderId = order.result.id;
-
-    // Guardar en DB con estado pendiente
-    const newPurchase = new Purchase({
+    let purchaseData = {
       buyer: {
         ...buyer,
         acceptedTerms: Boolean(buyer.acceptedTerms)
@@ -41,26 +20,125 @@ router.post('/create-order', async (req, res) => {
       quantity,
       unitPrice,
       totalPrice,
-      paymentMethod: 'paypal',
-      paypal: {
-        orderId,
-        status: 'PENDING',
-        amount: parseFloat(totalPrice),
-        currency: 'USD'
+      paymentMethod
+    };
+
+    let responsePayload = {};
+
+    switch (paymentMethod) {
+      case 'paypal': {
+        const request = new paypal.orders.OrdersCreateRequest();
+        request.prefer("return=representation");
+        request.requestBody({
+          intent: 'CAPTURE',
+          application_context: {
+            return_url: 'http://voy-a-ganar.netlify.app/payment-success',
+            cancel_url: 'https://voy-a-ganar.netlify.app/checkout',
+            brand_name: 'voy-a-ganar',
+            user_action: 'PAY_NOW'
+          },
+          purchase_units: [{
+            amount: {
+              currency_code: 'USD',
+              value: totalPrice.toFixed(2) || amount
+            }
+          }]
+        });
+
+        const order = await client.execute(request);
+        const orderId = order.result.id;
+        const approveUrl = order.result.links.find(link => link.rel === 'approve')?.href;
+
+        purchaseData.paypal = {
+          orderId,
+          status: 'PENDING',
+          amount: parseFloat(totalPrice),
+          currency: 'USD'
+        };
+
+        responsePayload = { id: orderId, approveUrl };
+        break;
+      }
+
+      case 'payphone': {
+        const payphoneData = await createPayPhoneOrder({
+          amount: totalPrice,
+          buyer
+        });
+
+        purchaseData.card = {
+          transactionId: payphoneData.transactionId,
+          status: 'PENDING'
+        };
+
+        responsePayload = {
+          id: payphoneData.transactionId,
+          payUrl: payphoneData.paymentUrl
+        };
+        break;
+      }
+
+      default:
+        return res.status(400).json({ msg: 'Método de pago no soportado' });
+    }
+
+    const newPurchase = new Purchase(purchaseData);
+    await newPurchase.save();
+
+    res.status(200).json(responsePayload);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: 'Error al crear la orden' });
+  }
+});
+
+// Confirmar la orden de payphone
+router.post('/verify-payphone', async (req, res) => {
+  const { transactionId } = req.body;
+
+  if (!transactionId) {
+    return res.status(400).json({ msg: 'transactionId es requerido' });
+  }
+
+  try {
+    const token = await getAccessToken();
+
+    const response = await axios.get(`https://backoffice.payphone.com/api/v1/transactions/${transactionId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
       }
     });
 
-    await newPurchase.save();
+    const data = response.data;
 
-    const approveLink = order.result.links.find(link => link.rel === 'approve')?.href;
+    // Verifica que fue pagada exitosamente
+    if (data.status === 'Approved') {
+      const updatedPurchase = await Purchase.findOneAndUpdate(
+        { 'card.transactionId': transactionId },
+        {
+          $set: {
+            'card.status': 'COMPLETED',
+            'card.paymentProvider': 'payphone',
+            'card.cardBrand': data.cardBrand || 'unknown',
+            'card.last4': data.cardNumber ? data.cardNumber.slice(-4) : '',
+            'card.completedAt': new Date(data.transactionDate)
+          }
+        },
+        { new: true }
+      );
 
-    res.status(200).json({
-      id: orderId,
-      approveUrl: approveLink
-    });
+      return res.status(200).json({
+        msg: 'Pago aprobado y guardado',
+        purchase: updatedPurchase
+      });
+    } else {
+      return res.status(400).json({ msg: 'La transacción no fue aprobada', status: data.status });
+    }
   } catch (err) {
     console.error(err);
-    res.status(500).json({ msg: 'Error al crear orden PayPal' });
+    res.status(500).json({ msg: 'Error al verificar la transacción' });
   }
 });
 
