@@ -3,6 +3,7 @@ import paypal from '@paypal/checkout-server-sdk';
 import client from '../utils/paypalClient.js';
 import Purchase from '../models/purchase.model.js';
 import { createPayPhoneOrder, getAccessToken } from '../utils/payphoneClient.js';
+import stripe from '../utils/stripeClient.js';
 
 const router = express.Router();
 
@@ -32,8 +33,8 @@ router.post('/create-order', async (req, res) => {
         request.requestBody({
           intent: 'CAPTURE',
           application_context: {
-            return_url: 'http://voy-a-ganar.netlify.app/payment-success',
-            cancel_url: 'https://voy-a-ganar.netlify.app/checkout',
+            return_url: `${process.env.PRODUCT_FRONTEND_URL}/payment-success`,
+            cancel_url: `${process.env.PRODUCT_FRONTEND_URL}/checkout`,
             brand_name: 'voy-a-ganar',
             user_action: 'PAY_NOW'
           },
@@ -78,6 +79,48 @@ router.post('/create-order', async (req, res) => {
         break;
       }
 
+      case 'card': {
+        if (buyer?.paymentProvider !== 'stripe') {
+          return res.status(400).json({ msg: 'Proveedor de tarjeta no soportado' });
+        }
+
+        const session = await stripe.checkout.sessions.create({
+          payment_method_types: ['card'],
+          line_items: [{
+            price_data: {
+              currency: 'usd',
+              product_data: {
+                name: 'Compra de paquete de rifas',
+                description: `Paquete ID: ${packageId}`
+              },
+              unit_amount: Math.round(unitPrice * 100)
+            },
+            quantity: totalPrice
+          }],
+          mode: 'payment',
+          success_url: `${process.env.PRODUCT_FRONTEND_URL}/payment-success?token={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${process.env.PRODUCT_FRONTEND_URL}/checkout`,
+          metadata: {
+            buyerEmail: buyer.email,
+            buyerName: `${buyer.firstName} ${buyer.lastName}`,
+            packageId,
+          }
+        });
+
+        purchaseData.card = {
+          transactionId: session.id,
+          status: 'PENDING',
+          paymentProvider: 'stripe'
+        };
+
+        responsePayload = {
+          id: session.id,
+          checkoutUrl: session.url
+        };
+
+        break;
+      }
+
       default:
         return res.status(400).json({ msg: 'Método de pago no soportado' });
     }
@@ -92,6 +135,44 @@ router.post('/create-order', async (req, res) => {
     res.status(500).json({ msg: 'Error al crear la orden' });
   }
 });
+
+// Confirmar la orden de Stripe
+router.post('/verify-stripe', async (req, res) => {
+  const { sessionId } = req.body;
+
+  try {
+    const session = await stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ['payment_intent.charges']
+    });
+
+    const paymentIntent = session.payment_intent;
+
+    if (paymentIntent.status === 'succeeded') {
+      const charge = paymentIntent.charges?.data?.[0];
+
+      const updatedPurchase = await Purchase.findOneAndUpdate(
+        { 'card.transactionId': session.id },
+        {
+          $set: {
+            'card.status': 'COMPLETED',
+            'card.cardBrand': charge?.payment_method_details?.card?.brand || '',
+            'card.last4': charge?.payment_method_details?.card?.last4 || '',
+            'card.completedAt': new Date((paymentIntent.created || Date.now()) * 1000)
+          }
+        },
+        { new: true }
+      );
+
+      return res.status(200).json({ msg: 'Pago exitoso', purchase: updatedPurchase });
+    } else {
+      return res.status(400).json({ msg: 'El pago aún no se ha completado', status: paymentIntent.status });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: 'Error al verificar el pago con Stripe' });
+  }
+});
+
 
 // Confirmar la orden de payphone
 router.post('/verify-payphone', async (req, res) => {
