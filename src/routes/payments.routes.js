@@ -93,12 +93,12 @@ router.post('/create-order', async (req, res) => {
                 name: 'Compra de paquete de rifas',
                 description: `Paquete ID: ${packageId}`
               },
-              unit_amount: Math.round(unitPrice * 100)
+              unit_amount: Math.round(Number(totalPrice.toFixed(2)) * 100)
             },
-            quantity: totalPrice
+            quantity: 1
           }],
           mode: 'payment',
-          success_url: `${process.env.PRODUCT_FRONTEND_URL}/payment-success?token={CHECKOUT_SESSION_ID}`,
+          success_url: `${process.env.PRODUCT_FRONTEND_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${process.env.PRODUCT_FRONTEND_URL}/checkout`,
           metadata: {
             buyerEmail: buyer.email,
