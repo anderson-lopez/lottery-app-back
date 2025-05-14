@@ -1,4 +1,3 @@
-// server.js
 import express from 'express';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
@@ -8,6 +7,7 @@ import adminRoutes from './routes/admin.routes.js';
 import paymentRoutes from './routes/payments.routes.js';
 import packageRoutes from './routes/package.routes.js';
 import purchaseRoutes from './routes/purchase.routes.js';
+import raffleRoutes from './routes/raffleAdmin.route.js';
 
 dotenv.config();
 
@@ -20,6 +20,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/packages', packageRoutes);
 app.use('/api/purchases', purchaseRoutes);
+app.use('/api/raffle', raffleRoutes);
 app.use('/api/*', (req, res) => {
   res.status(404).json({ message: 'Ruta no encontrada' });
 });
@@ -29,10 +30,11 @@ app.get('/', (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
-// DB + servidor
+// Conexión a MongoDB
 mongoose.connect(process.env.MONGODB_URI)
-  .then(() => {
+  .then(async () => {
     console.log('MongoDB conectado');
+
     app.listen(PORT, () => console.log(`Servidor en puerto ${PORT}`));
   })
   .catch((err) => console.error('Error conectando MongoDB:', err));

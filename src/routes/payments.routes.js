@@ -2,12 +2,14 @@ import express from 'express';
 import paypal from '@paypal/checkout-server-sdk';
 import client from '../utils/paypalClient.js';
 import Purchase from '../models/purchase.model.js';
+import RaffleNumber from '../models/raffleNumbers.model.js';
 import { createPayPhoneOrder, getAccessToken } from '../utils/payphoneClient.js';
 import stripe from '../utils/stripeClient.js';
+import axios from 'axios';
 
 const router = express.Router();
 
-// Crear una orden de PayPal
+// Crear una orden de pago
 router.post('/create-order', async (req, res) => {
   const { amount, buyer, packageId, quantity, unitPrice, totalPrice, paymentMethod } = req.body;
 
@@ -125,7 +127,31 @@ router.post('/create-order', async (req, res) => {
         return res.status(400).json({ msg: 'Método de pago no soportado' });
     }
 
+    // Guardar la compra en MongoDB
     const newPurchase = new Purchase(purchaseData);
+    await newPurchase.save();
+
+    // Asignar números aleatorios no repetidos
+    const availableNumbers = await RaffleNumber.aggregate([
+      { $match: { status: 'available' } },
+      { $sample: { size: quantity } }
+    ]);
+
+    if (availableNumbers.length < quantity) {
+      return res.status(400).json({ msg: 'No hay suficientes números disponibles para esta compra' });
+    }
+
+    const assignedNumbers = [];
+
+    for (const number of availableNumbers) {
+      await RaffleNumber.updateOne(
+        { _id: number._id },
+        { $set: { status: 'assigned', assignedTo: newPurchase._id } }
+      );
+      assignedNumbers.push(number.number);
+    }
+
+    newPurchase.assignedNumbers = assignedNumbers;
     await newPurchase.save();
 
     res.status(200).json(responsePayload);
@@ -136,7 +162,7 @@ router.post('/create-order', async (req, res) => {
   }
 });
 
-// Confirmar la orden de Stripe
+// Verificar Stripe
 router.post('/verify-stripe', async (req, res) => {
   const { sessionId } = req.body;
 
@@ -173,8 +199,7 @@ router.post('/verify-stripe', async (req, res) => {
   }
 });
 
-
-// Confirmar la orden de payphone
+// Verificar Payphone
 router.post('/verify-payphone', async (req, res) => {
   const { transactionId } = req.body;
 
@@ -194,7 +219,6 @@ router.post('/verify-payphone', async (req, res) => {
 
     const data = response.data;
 
-    // Verifica que fue pagada exitosamente
     if (data.status === 'Approved') {
       const updatedPurchase = await Purchase.findOneAndUpdate(
         { 'card.transactionId': transactionId },

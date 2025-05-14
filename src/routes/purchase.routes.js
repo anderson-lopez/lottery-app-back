@@ -1,6 +1,7 @@
 import express from 'express';
 import Purchase from '../models/purchase.model.js';
 import { verifyAdminToken } from '../middleware/authAdmin.js';
+import RaffleNumber from '../models/raffleNumbers.model.js';
 
 const router = express.Router();
 
