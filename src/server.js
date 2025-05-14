@@ -8,6 +8,7 @@ import paymentRoutes from './routes/payments.routes.js';
 import packageRoutes from './routes/package.routes.js';
 import purchaseRoutes from './routes/purchase.routes.js';
 import raffleRoutes from './routes/raffleAdmin.route.js';
+import lotteryRoutes from './routes/lotterySettings.routes.js'
 
 dotenv.config();
 
@@ -21,6 +22,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/packages', packageRoutes);
 app.use('/api/purchases', purchaseRoutes);
 app.use('/api/raffle', raffleRoutes);
+app.use('/api/lottery', lotteryRoutes);
 app.use('/api/*', (req, res) => {
   res.status(404).json({ message: 'Ruta no encontrada' });
 });
