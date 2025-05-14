@@ -11,7 +11,7 @@ const router = express.Router();
 
 // Crear una orden de pago
 router.post('/create-order', async (req, res) => {
-  const { amount, buyer, packageId, quantity, unitPrice, totalPrice, paymentMethod } = req.body;
+  const { amount, buyer, packageId, quantity, unitPrice, totalPrice, paymentMethod, resellerCode } = req.body;
 
   try {
     let purchaseData = {
@@ -23,7 +23,8 @@ router.post('/create-order', async (req, res) => {
       quantity,
       unitPrice,
       totalPrice,
-      paymentMethod
+      paymentMethod,
+      resellerCode: resellerCode || null
     };
 
     let responsePayload = {};

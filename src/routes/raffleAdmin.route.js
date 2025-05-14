@@ -21,7 +21,7 @@ router.post('/generate-raffle-numbers', async (req, res) => {
   try {
     const count = await RaffleNumber.countDocuments();
     if (count > 0) {
-      return res.status(400).json({ msg: `Ya existen ${count} números. Borra antes de generar nuevos.` });
+      return res.status(202).json({ msg: `Ya existen ${count} números. Borra antes de generar nuevos.` });
     }
 
     const bulk = [];
@@ -114,7 +114,7 @@ router.post('/assign-random-prizes', async (req, res) => {
 
   const alreadyAssigned = await RaffleNumber.countDocuments({ prizeAmount: { $exists: true } });
   if (alreadyAssigned > 0) {
-    return res.status(400).json({ msg: 'Ya existen premios asignados. Elimina primero si deseas reiniciar.' });
+    return res.status(202).json({ msg: 'Ya existen premios asignados. Elimina primero si deseas reiniciar.' });
   }
 
   try {

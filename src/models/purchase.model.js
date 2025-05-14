@@ -18,7 +18,8 @@ const purchaseSchema = new mongoose.Schema({
   unitPrice: { type: Number, required: true },
   totalPrice: { type: Number, required: true },
 
-  assignedNumbers: [{ type: String }], // Array de números asignados (ej: ["00001", "00002"])
+  assignedNumbers: [{ type: String }],
+  resellerCode: { type: String },
 
   paymentMethod: {
     type: String,

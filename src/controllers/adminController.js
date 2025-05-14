@@ -1,10 +1,15 @@
 import Admin from '../models/Admin.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto'
 
-// Registrar nuevo admin
+const generateResellerCode = () => {
+  return crypto.randomBytes(3).toString('hex').toUpperCase(); // Ej: 'A1B2C3'
+};
+
+// Registrar nuevo admin o revendedor
 export const registerAdmin = async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, role = 'admin', code, name } = req.body;
 
   try {
     const adminExists = await Admin.findOne({ email });
@@ -13,11 +18,28 @@ export const registerAdmin = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    const finalCode = code || generateResellerCode();
 
-    const newAdmin = new Admin({ email, password: hashedPassword });
+    // Verificar si el código ya existe
+    const codeExists = await Admin.findOne({ code: finalCode });
+    if (codeExists) {
+      return res.status(400).json({ msg: 'El código ya está en uso' });
+    }
+
+    const newAdmin = new Admin({
+      email,
+      password: hashedPassword,
+      role,
+      code: finalCode, 
+      fullname: name
+    });
+
     await newAdmin.save();
 
-    res.status(201).json({ msg: 'Admin creado correctamente' });
+    res.status(201).json({
+      msg: 'Admin creado correctamente',
+      code: finalCode
+    });
   } catch (err) {
     res.status(500).json({ msg: 'Error al registrar admin', error: err.message });
   }
