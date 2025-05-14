@@ -6,6 +6,7 @@ import RaffleNumber from '../models/raffleNumbers.model.js';
 import { createPayPhoneOrder, getAccessToken } from '../utils/payphoneClient.js';
 import stripe from '../utils/stripeClient.js';
 import axios from 'axios';
+import { sendPurchaseEmail } from '../utils/emailSender.js';
 
 const router = express.Router();
 
@@ -36,8 +37,8 @@ router.post('/create-order', async (req, res) => {
         request.requestBody({
           intent: 'CAPTURE',
           application_context: {
-            return_url: `${process.env.PRODUCT_FRONTEND_URL}/payment-success`,
-            cancel_url: `${process.env.PRODUCT_FRONTEND_URL}/checkout`,
+            return_url: `${process.env.FRONTEND_URL}/payment-success`,
+            cancel_url: `${process.env.FRONTEND_URL}/checkout`,
             brand_name: 'voy-a-ganar',
             user_action: 'PAY_NOW'
           },
@@ -101,8 +102,8 @@ router.post('/create-order', async (req, res) => {
             quantity: 1
           }],
           mode: 'payment',
-          success_url: `${process.env.PRODUCT_FRONTEND_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-          cancel_url: `${process.env.PRODUCT_FRONTEND_URL}/checkout`,
+          success_url: `${process.env.FRONTEND_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${process.env.FRONTEND_URL}/checkout`,
           metadata: {
             buyerEmail: buyer.email,
             buyerName: `${buyer.firstName} ${buyer.lastName}`,
@@ -190,6 +191,10 @@ router.post('/verify-stripe', async (req, res) => {
         { new: true }
       );
 
+      if (updatedPurchase) {
+        await sendPurchaseEmail(updatedPurchase);
+      }
+
       return res.status(200).json({ msg: 'Pago exitoso', purchase: updatedPurchase });
     } else {
       return res.status(400).json({ msg: 'El pago aún no se ha completado', status: paymentIntent.status });
@@ -235,6 +240,10 @@ router.post('/verify-payphone', async (req, res) => {
         { new: true }
       );
 
+      if (updatedPurchase) {
+        await sendPurchaseEmail(updatedPurchase);
+      }
+
       return res.status(200).json({
         msg: 'Pago aprobado y guardado',
         purchase: updatedPurchase
@@ -277,6 +286,10 @@ router.post('/capture-order', async (req, res) => {
       },
       { new: true }
     );
+
+    if (updatedPurchase) {
+      await sendPurchaseEmail(updatedPurchase);
+    }
 
     res.status(200).json({ msg: 'Orden capturada y guardada con éxito', purchase: updatedPurchase });
   } catch (err) {
