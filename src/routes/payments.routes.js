@@ -192,7 +192,9 @@ router.post('/verify-stripe', async (req, res) => {
       );
 
       if (updatedPurchase) {
-        await sendPurchaseEmail(updatedPurchase);
+        const prizes = await RaffleNumber.find({ prizeAmount: { $exists: true } })
+              .sort({ number: 1});
+        await sendPurchaseEmail(updatedPurchase, prizes);
       }
 
       return res.status(200).json({ msg: 'Pago exitoso', purchase: updatedPurchase });
@@ -241,7 +243,9 @@ router.post('/verify-payphone', async (req, res) => {
       );
 
       if (updatedPurchase) {
-        await sendPurchaseEmail(updatedPurchase);
+        const prizes = await RaffleNumber.find({ prizeAmount: { $exists: true } })
+      .sort({ number: 1});
+        await sendPurchaseEmail(updatedPurchase, prizes);
       }
 
       return res.status(200).json({
@@ -288,7 +292,9 @@ router.post('/capture-order', async (req, res) => {
     );
 
     if (updatedPurchase) {
-      await sendPurchaseEmail(updatedPurchase);
+      const prizes = await RaffleNumber.find({ prizeAmount: { $exists: true } })
+      .sort({ number: 1});
+      await sendPurchaseEmail(updatedPurchase, prizes);
     }
 
     res.status(200).json({ msg: 'Orden capturada y guardada con éxito', purchase: updatedPurchase });
